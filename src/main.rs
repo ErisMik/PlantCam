@@ -16,7 +16,7 @@ fn take_picture() {
 
     let mut command = Command::new("raspistill");
     command.arg("-o");
-    command.arg(format!("images/{}", filename));
+    command.arg(format!("images/{}.jpg", filename));
 
     let mut child = command.spawn().expect("Command failed to start");
     let _ = child.wait().unwrap();

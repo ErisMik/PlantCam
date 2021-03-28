@@ -1,12 +1,15 @@
 extern crate clokwerk;
 extern crate tokio;
 extern crate warp;
+extern crate uuid;
 
 use clokwerk::{Scheduler, TimeUnits};
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use warp::{Filter, http::Response};
+use uuid::Uuid;
+use std::fs;
 
 fn base_camera_command() -> std::process::Command {
     let mut command = Command::new("raspistill");
@@ -14,6 +17,15 @@ fn base_camera_command() -> std::process::Command {
     command.arg("-hf");
     command.arg("-n");
     return command;
+}
+
+fn take_and_save_image(filepath: String) {
+    let mut command = base_camera_command();
+    command.arg("-o");
+    command.arg(filepath);
+
+    let mut child = command.spawn().expect("Command failed to start");
+    let _ = child.wait().unwrap();
 }
 
 fn gen_timelapse_filename() -> u64 {
@@ -24,13 +36,9 @@ fn gen_timelapse_filename() -> u64 {
 
 fn take_timelapse_photo() {
     let filename = gen_timelapse_filename();
+    let filepath = format!("images/{}.jpg", filename);
 
-    let mut command = base_camera_command();
-    command.arg("-o");
-    command.arg(format!("images/{}.jpg", filename));
-
-    let mut child = command.spawn().expect("Command failed to start");
-    let _ = child.wait().unwrap();
+    take_and_save_image(filepath);
 }
 
 fn timelapse_thread() {
@@ -45,15 +53,13 @@ fn timelapse_thread() {
 }
 
 fn take_instant_photo() -> Vec<u8> {
-    let mut command = base_camera_command();
-    command.arg("-o");
-    command.arg("-");
+    let filename = Uuid::new_v4().to_hyphenated().to_string();
+    let filepath = format!("/tmp/{}.jpg", filename);
 
-    let child = command.spawn().expect("Command failed to start");
-    let result = child.wait_with_output().unwrap();
-    let raw_image = result.stdout;
+    take_and_save_image(filepath.clone());
 
-    return raw_image;
+    let image = fs::read(filepath).unwrap();
+    return image;
 }
 
 #[tokio::main]

@@ -6,7 +6,7 @@ use clokwerk::{Scheduler, TimeUnits};
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use warp::Filter;
+use warp::{Filter, http::Response};
 
 fn base_camera_command() -> std::process::Command {
     let mut command = Command::new("raspistill");
@@ -60,9 +60,12 @@ fn take_instant_photo() -> Vec<u8> {
 async fn main() {
     let timelapse_child = thread::spawn(timelapse_thread);
 
-    let index = warp::get()
-        .and(warp::path::end())
-        .map(|| take_instant_photo());
+    let index = warp::get().and(warp::path::end()).map(|| {
+        let image = take_instant_photo();
+        return Response::builder()
+            .header("Content-Type", "image/jpeg")
+            .body(image);
+    });
     let hello = warp::path!("hello" / String).map(|name| format!("Hello, {}!", name));
 
     let routes = index.or(hello);

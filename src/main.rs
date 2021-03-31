@@ -1,15 +1,15 @@
 extern crate clokwerk;
 extern crate tokio;
-extern crate warp;
 extern crate uuid;
+extern crate warp;
 
 use clokwerk::{Scheduler, TimeUnits};
-use std::process::Command;
+use std::fs;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use warp::{Filter, http::Response};
 use uuid::Uuid;
-use std::fs;
+use warp::{http::Response, Filter};
 
 fn base_camera_command() -> std::process::Command {
     let mut command = Command::new("raspistill");
@@ -28,6 +28,17 @@ fn take_and_save_image(filepath: String) {
     let _ = child.wait().unwrap();
 }
 
+fn take_image() -> Vec<u8> {
+    let mut command = base_camera_command();
+    command.arg("-o");
+    command.arg("-");
+    command.stdout(Stdio::piped());
+
+    let child = command.spawn().expect("Command failed to start");
+    let output = child.wait_with_output().unwrap();
+    return output.stdout;
+}
+
 fn gen_timelapse_filename() -> u64 {
     let start = SystemTime::now();
     let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap();
@@ -44,7 +55,7 @@ fn take_timelapse_photo() {
 fn timelapse_thread() {
     let mut scheduler = Scheduler::new();
 
-    scheduler.every(1.hour()).run(|| take_timelapse_photo());
+    scheduler.every(30.minute()).run(|| take_timelapse_photo());
 
     loop {
         scheduler.run_pending();
@@ -72,9 +83,14 @@ async fn main() {
             .header("Content-Type", "image/jpeg")
             .body(image);
     });
-    let hello = warp::path!("hello" / String).map(|name| format!("Hello, {}!", name));
+    let current = warp::path("current").and(warp::path::end()).map(|| {
+        let image = take_image();
+        return Response::builder()
+            .header("Content-Type", "image/jpeg")
+            .body(image);
+    });
 
-    let routes = index.or(hello);
+    let routes = index.or(current);
     warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
 
     timelapse_child.join().unwrap();

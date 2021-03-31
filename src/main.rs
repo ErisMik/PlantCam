@@ -77,9 +77,7 @@ fn handle_latest() -> Result<Response<Vec<u8>>, warp::http::Error> {
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()
         .unwrap();
-    entries.sort();
-    println!("{:?}", entries);
-    println!("{:?}", &entries[0]);
+    entries.sort().reverse();
 
     let filepath = &entries[0];
     let image = fs::read(filepath).unwrap();

@@ -6,7 +6,10 @@ edition = "2018"
 
 [dependencies]
 clokwerk = "0.3"
-warp = "0.3"
+
+[dependencies.warp]
+features = ["compression"]
+version = "0.3"
 
 [dependencies.tokio]
 features = ["full"]
